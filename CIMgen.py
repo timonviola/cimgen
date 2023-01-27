@@ -1,9 +1,10 @@
-import os
-import xmltodict
-from time import time
 import json
-
 import logging
+import os
+from time import time
+
+import xmltodict
+
 logger = logging.getLogger(__name__)
 
 class RDFSEntry:
@@ -353,7 +354,7 @@ def _write_python_files(elem_dict, langPack, outputPath, version):
 
         class_details = {
             "attributes": _find_multiple_attributes(elem_dict[class_name].attributes()),
-            "ClassLocation": langPack.get_class_location(class_name, elem_dict, outputPath),
+            "ClassLocation": langPack.get_class_location(class_name, elem_dict, version),
             "class_name": class_name,
             "class_origin": elem_dict[class_name].origins(),
             "instances": elem_dict[class_name].instances(),
