@@ -1,33 +1,56 @@
+"""Julia code generation."""
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 import chevron
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
-# This makes sure we have somewhere to write the classes, and
-# creates a couple of files the python implementation needs.
-# cgmes_profile_info details which uri belongs in each profile.
-# We don't use that here because we aren't creating the header
-# data for the separate profiles.
-def setup(version_path, cgmes_profile_info):
+# TODO:
+# - [ ] update mustache template for julia
+#   - __str__ -> show()( julia repr should not be changed
+#                        according to the docs)
+# - [ ] remove __init__ file (no need for that in jl)
+# - [ ] 
+
+
+def setup(version_path: Path, *args:Any):
+    """Set up output directory
+
+    This makes sure we have somewhere to write the classes, and
+    creates a couple of files the python implementation needs.
+    cgmes_profile_info details which uri belongs in each profile.
+    We don't use that here because we aren't creating the header
+    data for the separate profiles.
+    """
     if not os.path.exists(version_path):
         os.makedirs(version_path)
         _create_init(version_path)
         _create_base(version_path)
 
-def location(version):
-     return "cimpy." + version + ".Base";
+def location(version:str):
+    """_summary_
 
+    Args:
+        version (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    return "cimpy." + version + ".Base"
+
+# BUG unused var?
+# BUG these are module vars and used in CIMgen.py
 base = {
     "base_class": "Base",
     "class_location": location
 }
 
-template_files=[ { "filename": "cimpy_class_template.mustache", "ext": ".py" } ]
+template_files=[ { "filename": "cimpy_class_template.mustache", "ext": ".jl" } ]
 
-def get_class_location(class_name, class_map, version:str):
+def get_class_location(class_name:str, class_map, version:str):
     # Check if the current class has a parent class
     if class_map[class_name].superClass():
         if class_map[class_name].superClass() in class_map:
@@ -37,7 +60,7 @@ def get_class_location(class_name, class_map, version:str):
     else:
         return location(version)
 
-partials = {}
+PARTIALS = {}
 
 # called by chevron, text contains the label {{dataType}}, which is evaluated by the renderer (see class template)
 def _set_default(text, render):
@@ -81,7 +104,7 @@ def run_template(version_path:Path, class_details):
                     args = {
                         'data': class_details,
                         'template': f,
-                        'partials_dict': partials
+                        'partials_dict': PARTIALS
                     }
                     output = chevron.render(**args)
                 file.write(output)
@@ -93,8 +116,8 @@ def _create_init(path:Path):
         pass
 
 # creates the Base class file, all classes inherit from this class
-def _create_base(path):
-    base_path = path + "/Base.py"
+def _create_base(path:Path):
+    base_path = path / "Base.py"
     base = ['from enum import Enum\n\n', '\n', 'class Base():\n', '    """\n', '    Base Class for CIM\n',
             '    """\n\n',
             '    cgmesProfile = Enum("cgmesProfile", {"EQ": 0, "SSH": 1, "TP": 2, "SV": 3, "DY": 4, "GL": 5, "DL": 6, "TP_BD": 7, "EQ_BD": 8})',
@@ -107,12 +130,17 @@ def _create_base(path):
 
 
 def resolve_headers(path:Path):
-    filenames = path.glob("./*.py")
+    """Populate @/__init__.py with relative imports of the generated files.
+    
+    This basically defines the name space/public API."
+
+    Args:
+        path (Path): path to output directory
+    """
+    filenames = path.glob("./*.jl")
     include_names:list[str] = []
     for filename in filenames:
-        # NOTE maybe I change functionality here?
         include_names.append(filename.stem)
-        # include_names.append(os.path.splitext(os.path.basename(filename))[0])
-    with open(path / "__init__.py", "w+") as header_file:
+    with open(path / "__init__.jl", "w+") as header_file:
         for include_name in include_names:
             header_file.write(f"from . {include_name} import {include_name} as {include_name}\n")
