@@ -1,10 +1,12 @@
-import os
-import xmltodict
-from time import time
 import json
-
 import logging
-logger = logging.getLogger(__name__)
+import os
+from pathlib import Path
+from time import time
+
+import xmltodict
+
+_LOGGER = logging.getLogger(__name__)
 
 class RDFSEntry:
     def __init__(self, jsonObject):
@@ -285,7 +287,7 @@ def _parse_rdf(input_dic):
             if rdfsEntry.type() == 'http://www.w3.org/2000/01/rdf-schema#Class':
                 # Class
                 if rdfsEntry.label() in classes_map:
-                    logger.error("Class {} already exists".format(rdfsEntry.label()))
+                    _LOGGER.error("Class {} already exists".format(rdfsEntry.label()))
                 if rdfsEntry.label() != "String":
                     classes_map[rdfsEntry.label()] = CIMComponentDefinition(rdfsEntry);
             elif rdfsEntry.type() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#Property":
@@ -318,7 +320,7 @@ def _parse_rdf(input_dic):
         if clarse and classes_map[clarse]:
             classes_map[clarse].addAttribute(attribute)
         else:
-            logger.info("Class {} for attribute {} not found.".format(clarse, attribute))
+            _LOGGER.info("Class {} for attribute {} not found.".format(clarse, attribute))
 
     # Add instances to corresponding class
     for instance in instances:
@@ -326,7 +328,7 @@ def _parse_rdf(input_dic):
         if clarse and clarse in classes_map:
             classes_map[clarse].addInstance(instance)
         else:
-            logger.info("Class {} for instance {} not found.".format(clarse, instance))
+            _LOGGER.info("Class {} for instance {} not found.".format(clarse, instance))
 
     return {package_name: classes_map}
 
@@ -353,7 +355,7 @@ def _write_python_files(elem_dict, langPack, outputPath, version):
 
         class_details = {
             "attributes": _find_multiple_attributes(elem_dict[class_name].attributes()),
-            "ClassLocation": langPack.get_class_location(class_name, elem_dict, outputPath),
+            "ClassLocation": langPack.get_class_location(class_name, elem_dict, version),
             "class_name": class_name,
             "class_origin": elem_dict[class_name].origins(),
             "instances": elem_dict[class_name].instances(),
@@ -389,7 +391,8 @@ def format_class(_range, _dataType):
     else:
         return get_rid_of_hash(_range)
 
-def _write_files(class_details, outputPath, version):
+def _write_files(class_details, outputPath:Path, version:str):
+    _LOGGER.debug(f"{outputPath=}")
     class_details['langPack'].setup(outputPath, package_listed_by_short_name)
 
     if class_details['sub_class_of'] == None:
@@ -535,7 +538,7 @@ def addSubClassesOfSubClasses(class_dict):
     for className in class_dict:
         class_dict[className].setSubClasses(recursivelyAddSubClasses(class_dict, className))
 
-def cim_generate(directory, outputPath, version, langPack):
+def cim_generate(directory:Path, outputPath:Path, version:str, langPack):
     """Generates cgmes python classes from cgmes ontology
 
     This function uses package xmltodict to parse the RDF files. The parse_rdf function sorts the classes to
@@ -559,7 +562,7 @@ def cim_generate(directory, outputPath, version, langPack):
     # iterate over files in the directory and check if they are RDF files
     for file in os.listdir(directory):
         if file.endswith(".rdf"):
-            logger.info('Start of parsing file \"%s\"', file)
+            _LOGGER.info('Start of parsing file \"%s\"', file)
 
             file_path = os.path.join(directory, file)
             xmlstring = open(file_path, encoding="utf8").read()
@@ -591,6 +594,6 @@ def cim_generate(directory, outputPath, version, langPack):
     # get information for writing python files and write python files
     _write_python_files(class_dict_with_origins, langPack, outputPath, version)
 
-    logger.info('Elapsed Time: {}s\n\n'.format(time() - t0))
+    _LOGGER.info('Elapsed Time: {}s\n\n'.format(time() - t0))
 
 

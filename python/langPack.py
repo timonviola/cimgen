@@ -1,8 +1,10 @@
-import os
-import chevron
-import logging
 import glob
-import sys
+import logging
+import os
+from pathlib import Path
+
+import chevron
+
 logger = logging.getLogger(__name__)
 
 # This makes sure we have somewhere to write the classes, and
@@ -26,7 +28,7 @@ base = {
 
 template_files=[ { "filename": "cimpy_class_template.mustache", "ext": ".py" } ]
 
-def get_class_location(class_name, class_map, version):
+def get_class_location(class_name, class_map, version:str):
     # Check if the current class has a parent class
     if class_map[class_name].superClass():
         if class_map[class_name].superClass() in class_map:
@@ -69,7 +71,7 @@ def set_enum_classes(new_enum_classes):
 def set_float_classes(new_float_classes):
     return
 
-def run_template(version_path, class_details):
+def run_template(version_path:Path, class_details):
     for template_info in template_files:
         class_file = os.path.join(version_path, class_details['class_name'] + template_info["ext"])
         if not os.path.exists(class_file):
@@ -105,12 +107,13 @@ def _create_base(path):
             f.write(line)
 
 
-def resolve_headers(path):
-    filenames = glob.glob(path + "/*.py")
-    include_names = []
+def resolve_headers(path:Path):
+    filenames = path.glob("./*.py")
+    include_names:list[str] = []
     for filename in filenames:
-        include_names.append(os.path.splitext(os.path.basename(filename))[0])
-    with open(path + "/__init__.py", "w") as header_file:
+        # NOTE maybe I change functionality here?
+        include_names.append(filename.stem)
+        # include_names.append(os.path.splitext(os.path.basename(filename))[0])
+    with open(path / "__init__.py", "w+") as header_file:
         for include_name in include_names:
-            header_file.write("from " + "." + include_name + " import " + include_name + " as " + include_name + "\n")
-        header_file.close()
+            header_file.write(f"from . {include_name} import {include_name} as {include_name}\n")
